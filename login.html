@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리집가계부 — 로그인</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="screen" style="display:flex;flex-direction:column;align-items:center;">
+
+  <div style="width:72px;height:72px;border-radius:20px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:34px;margin-top:44px;">🏠</div>
+  <div style="margin-top:16px;font-size:23px;font-weight:800;letter-spacing:-0.3px;">우리집가계부</div>
+  <div style="margin-top:6px;font-size:13.5px;color:var(--subtext);">가족과 함께 쓰는 가계부</div>
+
+  <div style="margin-top:36px;width:100%;display:flex;background:var(--surface-alt);border-radius:14px;padding:4px;gap:4px;">
+    <button id="tabLoginBtn" style="flex:1;text-align:center;padding:10px 0;border-radius:10px;font-size:14px;font-weight:700;border:none;background:var(--surface);color:var(--accent);">로그인</button>
+    <button id="tabSignupBtn" style="flex:1;text-align:center;padding:10px 0;border-radius:10px;font-size:14px;font-weight:600;border:none;background:transparent;color:var(--subtext);">회원가입</button>
+  </div>
+
+  <form id="loginForm" style="margin-top:28px;width:100%;display:flex;flex-direction:column;gap:16px;">
+    <div class="field">
+      <label>이메일</label>
+      <input type="email" id="loginEmail" placeholder="family@example.com" required>
+    </div>
+    <div class="field">
+      <label>비밀번호</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" required>
+    </div>
+    <button type="submit" class="btn-primary" style="margin-top:8px;">로그인</button>
+  </form>
+
+  <form id="signupForm" class="hidden" style="margin-top:28px;width:100%;display:flex;flex-direction:column;gap:16px;">
+    <div class="field">
+      <label>이메일</label>
+      <input type="email" id="signupEmail" placeholder="family@example.com" required>
+    </div>
+    <div class="field">
+      <label>비밀번호</label>
+      <input type="password" id="signupPassword" placeholder="6자 이상" minlength="6" required>
+    </div>
+    <div class="field">
+      <label>닉네임</label>
+      <input type="text" id="signupNickname" placeholder="가족들에게 보여질 이름" required>
+    </div>
+    <button type="submit" class="btn-primary" style="margin-top:8px;">가입하기</button>
+  </form>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script>
+initTheme();
+
+const tabLoginBtn = document.getElementById('tabLoginBtn');
+const tabSignupBtn = document.getElementById('tabSignupBtn');
+const loginForm = document.getElementById('loginForm');
+const signupForm = document.getElementById('signupForm');
+
+function showLogin() {
+  loginForm.classList.remove('hidden');
+  signupForm.classList.add('hidden');
+  tabLoginBtn.style.background = 'var(--surface)';
+  tabLoginBtn.style.color = 'var(--accent)';
+  tabLoginBtn.style.fontWeight = '700';
+  tabSignupBtn.style.background = 'transparent';
+  tabSignupBtn.style.color = 'var(--subtext)';
+  tabSignupBtn.style.fontWeight = '600';
+}
+function showSignup() {
+  signupForm.classList.remove('hidden');
+  loginForm.classList.add('hidden');
+  tabSignupBtn.style.background = 'var(--surface)';
+  tabSignupBtn.style.color = 'var(--accent)';
+  tabSignupBtn.style.fontWeight = '700';
+  tabLoginBtn.style.background = 'transparent';
+  tabLoginBtn.style.color = 'var(--subtext)';
+  tabLoginBtn.style.fontWeight = '600';
+}
+tabLoginBtn.addEventListener('click', showLogin);
+tabSignupBtn.addEventListener('click', showSignup);
+
+async function afterAuth() {
+  const session = await getSession();
+  if (!session) return;
+  const membership = await getMyMembership(session.user.id);
+  location.href = membership ? 'app.html' : 'household-setup.html';
+}
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) { showToast('로그인 실패: ' + error.message); return; }
+  await afterAuth();
+});
+
+signupForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('signupEmail').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const nickname = document.getElementById('signupNickname').value.trim();
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) { showToast('가입 실패: ' + error.message); return; }
+  localStorage.setItem('hl_pending_nickname', nickname);
+  if (data.session) {
+    await afterAuth();
+  } else {
+    showToast('가입 완료! 이메일의 확인 링크를 눌러주세요.');
+  }
+});
+
+// 이미 로그인 상태면 바로 다음 화면으로
+(async () => { const s = await getSession(); if (s) await afterAuth(); })();
+</script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리집가계부 — 가구 시작하기</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="screen">
+
+  <div id="chooseStep" style="font-size:19px;font-weight:800;line-height:1.4;">
+    가족들과 함께 쓸<br>가계부를 시작해보세요
+  </div>
+
+  <div style="margin-top:28px;display:flex;flex-direction:column;gap:14px;">
+    <button id="btnCreate" class="card" style="display:flex;align-items:center;gap:14px;text-align:left;width:100%;">
+      <div style="width:48px;height:48px;border-radius:14px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏠</div>
+      <div style="flex:1;">
+        <div style="font-size:15px;font-weight:700;">새 가구 만들기</div>
+        <div style="margin-top:3px;font-size:12.5px;color:var(--subtext);">우리 가족만의 가계부를 새로 시작해요</div>
+      </div>
+    </button>
+    <button id="btnJoin" class="card" style="display:flex;align-items:center;gap:14px;text-align:left;width:100%;">
+      <div style="width:48px;height:48px;border-radius:14px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🔑</div>
+      <div style="flex:1;">
+        <div style="font-size:15px;font-weight:700;">초대코드로 참여하기</div>
+        <div style="margin-top:3px;font-size:12.5px;color:var(--subtext);">가족이 보내준 6자리 코드를 입력해요</div>
+      </div>
+    </button>
+  </div>
+
+  <!-- 새 가구 만들기 폼 -->
+  <form id="createForm" class="hidden card" style="margin-top:24px;display:flex;flex-direction:column;gap:16px;">
+    <div class="field">
+      <label>가구 이름</label>
+      <input type="text" id="householdName" placeholder="예: 우리집" required>
+    </div>
+    <div class="field">
+      <label>닉네임</label>
+      <input type="text" id="createNickname" placeholder="가족들에게 보여질 이름" required>
+    </div>
+    <button type="submit" class="btn-primary">만들기</button>
+  </form>
+
+  <!-- 초대코드로 참여 폼 -->
+  <form id="joinForm" class="hidden card" style="margin-top:24px;display:flex;flex-direction:column;gap:16px;">
+    <div class="field">
+      <label>초대코드 (6자리)</label>
+      <input type="text" id="inviteCode" placeholder="482913" maxlength="6" inputmode="numeric" required>
+    </div>
+    <div class="field">
+      <label>닉네임</label>
+      <input type="text" id="joinNickname" placeholder="가족들에게 보여질 이름" required>
+    </div>
+    <button type="submit" class="btn-primary">참여하기</button>
+  </form>
+
+  <!-- 가구 생성 완료: 초대코드 발급 화면 -->
+  <div id="codeStep" class="hidden" style="border-radius:18px;background:var(--accent-soft);padding:24px;text-align:center;margin-top:28px;">
+    <div style="font-size:13px;">🎉 &nbsp;가구가 생성됐어요</div>
+    <div style="margin-top:14px;font-size:13.5px;">가족에게 이 코드를 알려주세요</div>
+    <div id="codeDisplay" style="margin-top:8px;font-size:34px;font-weight:800;letter-spacing:6px;color:var(--accent);"></div>
+    <button id="btnCopyCode" class="btn-primary" style="margin-top:16px;width:auto;padding:0 20px;">복사하기</button>
+    <button id="btnContinue" class="btn-primary" style="margin-top:12px;">계속하기 →</button>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script>
+initTheme();
+
+const chooseStep = document.getElementById('chooseStep');
+const btnCreate = document.getElementById('btnCreate');
+const btnJoin = document.getElementById('btnJoin');
+const createForm = document.getElementById('createForm');
+const joinForm = document.getElementById('joinForm');
+const codeStep = document.getElementById('codeStep');
+const pendingNickname = localStorage.getItem('hl_pending_nickname') || '';
+
+(async () => {
+  const ctx = await guardHouseholdSetup();
+  if (!ctx) return;
+  document.getElementById('createNickname').value = pendingNickname;
+  document.getElementById('joinNickname').value = pendingNickname;
+})();
+
+btnCreate.addEventListener('click', () => {
+  createForm.classList.remove('hidden');
+  joinForm.classList.add('hidden');
+});
+btnJoin.addEventListener('click', () => {
+  joinForm.classList.remove('hidden');
+  createForm.classList.add('hidden');
+});
+
+createForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('householdName').value.trim();
+  const nickname = document.getElementById('createNickname').value.trim();
+  const { data, error } = await sb.rpc('create_household', { p_name: name, p_nickname: nickname });
+  if (error) { showToast('생성 실패: ' + error.message); return; }
+  localStorage.removeItem('hl_pending_nickname');
+  chooseStep.classList.add('hidden');
+  btnCreate.parentElement.classList.add('hidden');
+  createForm.classList.add('hidden');
+  codeStep.classList.remove('hidden');
+  document.getElementById('codeDisplay').textContent = data.invite_code;
+});
+
+joinForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('inviteCode').value.trim();
+  const nickname = document.getElementById('joinNickname').value.trim();
+  const { error } = await sb.rpc('join_household', { p_code: code, p_nickname: nickname });
+  if (error) { showToast('참여 실패: ' + error.message); return; }
+  localStorage.removeItem('hl_pending_nickname');
+  location.href = 'app.html';
+});
+
+document.getElementById('btnCopyCode').addEventListener('click', async () => {
+  const code = document.getElementById('codeDisplay').textContent;
+  try { await navigator.clipboard.writeText(code); showToast('복사했어요'); }
+  catch { showToast(code); }
+});
+document.getElementById('btnContinue').addEventListener('click', () => { location.href = 'app.html'; });
+</script>
+</body>
+</html>

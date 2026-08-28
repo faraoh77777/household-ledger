@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리집가계부</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="screen" style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:14px;color:var(--subtext);">불러오는 중...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script>
+initTheme();
+(async () => {
+  const session = await getSession();
+  if (!session) { location.href = 'login.html'; return; }
+  const membership = await getMyMembership(session.user.id);
+  location.href = membership ? 'app.html' : 'household-setup.html';
+})();
+</script>
+</body>
+</html>
