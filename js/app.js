@@ -561,13 +561,17 @@ function parsePastedMessage() {
   const resultEl = document.getElementById('parseResult');
   if (!raw.trim()) return;
 
+  // 금액 추출: 숫자 바로 앞 문맥(최대 12자)에 "누적/잔액/한도/포인트"가 있으면 그 숫자는 건너뜀.
+  // 줄바꿈 유무와 상관없이(문자 앱마다 한 줄로 붙는 경우가 많음) 숫자 위치 기준으로 판단.
   const excludeWords = ['누적', '잔액', '한도', '포인트'];
-  const lines = raw.split('\n');
+  const amountRe = /([\d,]{1,12})\s*원/g;
   let amount = null;
-  for (const line of lines) {
-    if (excludeWords.some(w => line.includes(w))) continue;
-    const m = line.match(/([\d,]{1,12})\s*원/);
-    if (m) { amount = Number(m[1].replace(/,/g, '')); break; }
+  let m;
+  while ((m = amountRe.exec(raw)) !== null) {
+    const context = raw.slice(Math.max(0, m.index - 12), m.index);
+    if (excludeWords.some(w => context.includes(w))) continue;
+    amount = Number(m[1].replace(/,/g, ''));
+    break;
   }
 
   const expenseWords = ['승인', '결제', '출금', '일시불', '할부', '사용'];
@@ -588,7 +592,8 @@ function parsePastedMessage() {
     .replace(/누적.*$/gm, ' ')
     .replace(/잔액.*$/gm, ' ')
     .replace(/(승인|결제|출금|일시불|할부|사용|입금|이체입금|급여|환급|캐시백|Web발신|카드|은행|님)/g, ' ');
-  const tokens = stripped.split(/\s+/).map(s => s.trim()).filter(s => s.length >= 2);
+  // 가맹점명 후보: 한글이 하나라도 포함된 토큰만 대상으로(숫자/기호만 남은 파편 배제), 가장 긴 것을 채택.
+  const tokens = stripped.split(/\s+/).map(s => s.trim()).filter(s => s.length >= 2 && /[가-힣]/.test(s));
   const merchant = tokens.sort((a, b) => b.length - a.length)[0] || '';
 
   const bracketMatch = raw.match(/\[([^\]]+)\]/);
