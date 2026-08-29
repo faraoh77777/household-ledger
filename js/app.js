@@ -12,6 +12,9 @@ let activeTab = 'home';
 let modalType = 'expense';
 let selectedCategoryId = null;
 let editingTxId = null;
+let fixedExpenses = [];
+let editingFixedId = null;
+let selectedFixedCategoryId = null;
 
 function currentDateOnly() { return new Date(); }
 
@@ -55,6 +58,7 @@ function monthRange(d) {
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
   return { start: fmtDate(start), end: fmtDate(end) };
 }
+function daysInMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -73,8 +77,10 @@ async function init() {
   wireNav();
   wireAddModal();
   wireSettings();
+  wireFixedModal();
   applyDarkUI();
   renderMembersCard();
+  await loadFixedExpenses();
   await refreshMonth();
 }
 
@@ -615,6 +621,157 @@ function parsePastedMessage() {
     resultEl.innerHTML = `자동 인식에 실패했어요. 직접 입력해주세요.`;
     document.getElementById('memoInput').value = raw.slice(0, 200);
   }
+}
+
+// ---------- 고정지출 관리 ----------
+async function loadFixedExpenses() {
+  const { data } = await sb.from('fixed_expenses').select('*')
+    .eq('household_id', ctx.membership.household_id).order('day_of_month');
+  fixedExpenses = data || [];
+  renderFixedList();
+}
+
+function renderFixedList() {
+  const el = document.getElementById('fixedList');
+  if (!fixedExpenses.length) {
+    el.innerHTML = `<div style="padding:16px;font-size:12.5px;color:var(--subtext);">등록된 고정지출이 없어요</div>`;
+    return;
+  }
+  el.innerHTML = fixedExpenses.map(f => {
+    const cat = categories.find(c => c.id === f.category_id);
+    const iconBg = cat ? catColor(cat.name) : 'var(--surface-alt)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);opacity:${f.is_active ? 1 : 0.5};">
+      <div data-edit-fixed="${f.id}" style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;">
+        <div style="width:34px;height:34px;border-radius:10px;background:${iconBg};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${cat ? cat.icon : '🗂️'}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;">${escapeHtml(f.name)}</div>
+          <div style="font-size:11px;color:var(--subtext);">매월 ${f.day_of_month}일 · ${fmtMoney(f.amount)}</div>
+        </div>
+      </div>
+      <button data-toggle-fixed="${f.id}" style="background:none;border:none;font-size:11px;font-weight:700;color:var(--subtext);">${f.is_active ? '끄기' : '켜기'}</button>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('[data-edit-fixed]').forEach(elm => elm.addEventListener('click', () => openFixedModal(elm.dataset.editFixed)));
+  document.querySelectorAll('[data-toggle-fixed]').forEach(elm => elm.addEventListener('click', async () => {
+    const f = fixedExpenses.find(x => x.id === elm.dataset.toggleFixed);
+    await sb.from('fixed_expenses').update({ is_active: !f.is_active }).eq('id', f.id);
+    await loadFixedExpenses();
+  }));
+}
+
+function wireFixedModal() {
+  document.getElementById('addFixedBtn').addEventListener('click', () => openFixedModal());
+  document.getElementById('closeFixedBtn').addEventListener('click', closeFixedModal);
+  document.getElementById('saveFixedBtn').addEventListener('click', saveFixedExpense);
+  document.getElementById('deleteFixedBtn').addEventListener('click', deleteFixedExpense);
+  document.getElementById('applyFixedBtn').addEventListener('click', applyFixedExpensesThisMonth);
+}
+
+function openFixedModal(id) {
+  editingFixedId = id || null;
+  document.getElementById('fixedOverlay').classList.remove('hidden');
+  document.getElementById('fixedModalTitle').textContent = id ? '고정지출 수정' : '고정지출 추가';
+  document.getElementById('deleteFixedBtn').classList.toggle('hidden', !id);
+  if (id) {
+    const f = fixedExpenses.find(x => x.id === id);
+    document.getElementById('fixedName').value = f.name;
+    document.getElementById('fixedAmount').value = f.amount;
+    document.getElementById('fixedDay').value = f.day_of_month;
+    document.getElementById('fixedAccountSelect').value = f.account_id || '';
+    selectedFixedCategoryId = f.category_id;
+  } else {
+    document.getElementById('fixedName').value = '';
+    document.getElementById('fixedAmount').value = '';
+    document.getElementById('fixedDay').value = '';
+    document.getElementById('fixedAccountSelect').value = '';
+    selectedFixedCategoryId = null;
+  }
+  populateFixedCategoryGrid();
+}
+
+function closeFixedModal() {
+  document.getElementById('fixedOverlay').classList.add('hidden');
+  editingFixedId = null;
+}
+
+function populateFixedCategoryGrid() {
+  const list = categories.filter(c => c.type === 'expense');
+  document.getElementById('fixedCategoryGrid').innerHTML = list.map(c => `
+    <button type="button" class="cat-chip ${c.id === selectedFixedCategoryId ? 'selected' : ''}" data-fixed-cat="${c.id}">
+      <div class="icon" style="background:${catColor(c.name)};">${c.icon}</div>
+      <span>${escapeHtml(c.name)}</span>
+    </button>`).join('');
+  document.querySelectorAll('#fixedCategoryGrid [data-fixed-cat]').forEach(b => b.addEventListener('click', () => {
+    selectedFixedCategoryId = b.dataset.fixedCat;
+    populateFixedCategoryGrid();
+  }));
+}
+
+async function saveFixedExpense() {
+  const name = document.getElementById('fixedName').value.trim();
+  const amount = Number(document.getElementById('fixedAmount').value);
+  const day = Number(document.getElementById('fixedDay').value);
+  if (!name) { showToast('이름을 입력해주세요'); return; }
+  if (!amount || amount <= 0) { showToast('금액을 입력해주세요'); return; }
+  if (!day || day < 1 || day > 28) { showToast('날짜는 1~28 사이로 입력해주세요'); return; }
+  if (!selectedFixedCategoryId) { showToast('카테고리를 선택해주세요'); return; }
+  const payload = {
+    household_id: ctx.membership.household_id,
+    category_id: selectedFixedCategoryId,
+    account_id: document.getElementById('fixedAccountSelect').value || null,
+    name, amount, day_of_month: day,
+  };
+  let error;
+  if (editingFixedId) {
+    ({ error } = await sb.from('fixed_expenses').update(payload).eq('id', editingFixedId));
+  } else {
+    ({ error } = await sb.from('fixed_expenses').insert(payload));
+  }
+  if (error) { showToast('저장 실패: ' + error.message); return; }
+  closeFixedModal();
+  await loadFixedExpenses();
+  showToast('저장했어요');
+}
+
+async function deleteFixedExpense() {
+  if (!editingFixedId) return;
+  if (!confirm('삭제할까요? (이미 반영된 지난 내역은 그대로 남아요)')) return;
+  const { error } = await sb.from('fixed_expenses').delete().eq('id', editingFixedId);
+  if (error) { showToast('삭제 실패: ' + error.message); return; }
+  closeFixedModal();
+  await loadFixedExpenses();
+  showToast('삭제했어요');
+}
+
+// 활성 고정지출을 이번 달 내역으로 생성(이미 반영된 항목은 건너뜀 — fixed_expense_id로 중복 방지)
+async function applyFixedExpensesThisMonth() {
+  const active = fixedExpenses.filter(f => f.is_active);
+  if (!active.length) { showToast('등록된(켜져 있는) 고정지출이 없어요'); return; }
+
+  const { start, end } = monthRange(currentMonth);
+  const { data: existing } = await sb.from('transactions')
+    .select('fixed_expense_id')
+    .eq('household_id', ctx.membership.household_id)
+    .gte('date', start).lte('date', end)
+    .not('fixed_expense_id', 'is', null);
+  const already = new Set((existing || []).map(e => e.fixed_expense_id));
+
+  const toInsert = active.filter(f => !already.has(f.id)).map(f => {
+    const day = Math.min(f.day_of_month, daysInMonth(currentMonth));
+    const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    return {
+      household_id: ctx.membership.household_id,
+      account_id: f.account_id, category_id: f.category_id,
+      member_id: ctx.membership.id, amount: f.amount, type: 'expense',
+      memo: f.name, date: fmtDate(d), source: 'fixed', fixed_expense_id: f.id,
+    };
+  });
+  if (!toInsert.length) { showToast('이미 이번 달에 전부 반영됐어요'); return; }
+
+  const { error } = await sb.from('transactions').insert(toInsert);
+  if (error) { showToast('반영 실패: ' + error.message); return; }
+  await refreshMonth();
+  showToast(`${toInsert.length}건 반영했어요`);
 }
 
 init();

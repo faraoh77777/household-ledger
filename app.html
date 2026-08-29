@@ -120,6 +120,13 @@
   </div>
   <div id="categoriesChips" style="margin-top:10px;display:grid;grid-template-columns:repeat(6, minmax(0,1fr));gap:10px;"></div>
 
+  <div style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font-size:12px;font-weight:700;color:var(--subtext);">고정지출 관리</div>
+    <button id="addFixedBtn" style="background:none;border:none;font-size:12px;font-weight:700;color:var(--accent);">+ 추가</button>
+  </div>
+  <div id="fixedList" class="card" style="margin-top:10px;padding:0;"></div>
+  <button id="applyFixedBtn" class="btn-outline" style="margin-top:10px;width:100%;text-align:center;">이번달 내역에 반영하기</button>
+
   <div style="margin-top:22px;font-size:12px;font-weight:700;color:var(--subtext);">환경설정</div>
   <div class="card" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;">
     <div style="font-size:13.5px;">🌙 다크모드</div>
@@ -208,6 +215,43 @@
     </div>
 
     <button id="saveTxBtn" class="btn-primary" style="margin-top:24px;">저장하기</button>
+  </div>
+</div>
+
+<!-- ============ 고정지출 추가/수정 모달 ============ -->
+<div id="fixedOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <button id="closeFixedBtn" style="background:none;border:none;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+      </button>
+      <div id="fixedModalTitle" style="font-size:16px;font-weight:800;">고정지출 추가</div>
+    </div>
+
+    <div class="field" style="margin-top:20px;">
+      <label>이름</label>
+      <input type="text" id="fixedName" placeholder="예: 월세, 넷플릭스, 실손보험">
+    </div>
+    <div class="field" style="margin-top:16px;">
+      <label>금액</label>
+      <input type="number" inputmode="numeric" id="fixedAmount" placeholder="0">
+    </div>
+
+    <div style="margin-top:16px;font-size:13px;font-weight:700;">카테고리</div>
+    <div id="fixedCategoryGrid" class="cat-grid" style="margin-top:12px;"></div>
+
+    <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:13px;font-weight:700;">계좌</span>
+      <select id="fixedAccountSelect" style="border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;background:var(--surface);color:var(--text);"></select>
+    </div>
+
+    <div class="field" style="margin-top:16px;">
+      <label>매월 며칠 (1~28일)</label>
+      <input type="number" id="fixedDay" min="1" max="28" placeholder="25">
+    </div>
+
+    <button id="saveFixedBtn" class="btn-primary" style="margin-top:24px;">저장하기</button>
+    <button id="deleteFixedBtn" class="btn-danger-outline hidden" style="margin-top:12px;width:100%;">삭제하기</button>
   </div>
 </div>
 

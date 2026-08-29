@@ -60,9 +60,25 @@ create table transactions (
   memo text,
   date date not null default current_date,
   receipt_photo_url text,
-  source text not null default 'manual' check (source in ('manual','paste')),
+  source text not null default 'manual' check (source in ('manual','paste','fixed')),
+  fixed_expense_id uuid,
   created_at timestamptz not null default now()
 );
+
+create table fixed_expenses (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references households(id) on delete cascade,
+  category_id uuid references categories(id) on delete set null,
+  account_id uuid references accounts(id) on delete set null,
+  name text not null,
+  amount numeric not null check (amount > 0),
+  day_of_month int not null check (day_of_month between 1 and 28),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table transactions add constraint transactions_fixed_expense_id_fkey
+  foreign key (fixed_expense_id) references fixed_expenses(id) on delete set null;
 
 create table budgets (
   id uuid primary key default gen_random_uuid(),
@@ -81,6 +97,7 @@ alter table accounts enable row level security;
 alter table categories enable row level security;
 alter table transactions enable row level security;
 alter table budgets enable row level security;
+alter table fixed_expenses enable row level security;
 
 create or replace function is_household_member(hh_id uuid)
 returns boolean
@@ -124,6 +141,10 @@ create policy "modify transactions" on transactions for all
 
 create policy "select budgets" on budgets for select using (is_household_member(household_id));
 create policy "modify budgets" on budgets for all
+  using (is_household_member(household_id)) with check (is_household_member(household_id));
+
+create policy "select fixed_expenses" on fixed_expenses for select using (is_household_member(household_id));
+create policy "modify fixed_expenses" on fixed_expenses for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
 
 -- ---------- RPC (초대코드 발급/가구 생성·참여는 RLS를 우회해야 해서 함수로 처리) ----------
