@@ -631,13 +631,31 @@ async function loadFixedExpenses() {
   renderFixedList();
 }
 
+// 카테고리 이름 기준으로 고정지출을 용돈/보험/저축·예금/그 외로 묶어서 보여줌
+function fixedGroupLabel(categoryName) {
+  if (!categoryName) return '그 외';
+  if (categoryName.includes('용돈')) return '용돈';
+  if (categoryName === '보험') return '보험';
+  if (categoryName === '저축/예금/투자') return '저축/예금';
+  return '생활비 등';
+}
+const FIXED_GROUP_ORDER = ['용돈', '보험', '저축/예금', '생활비 등', '그 외'];
+
 function renderFixedList() {
   const el = document.getElementById('fixedList');
   if (!fixedExpenses.length) {
     el.innerHTML = `<div style="padding:16px;font-size:12.5px;color:var(--subtext);">등록된 고정지출이 없어요</div>`;
     return;
   }
-  el.innerHTML = fixedExpenses.map(f => {
+
+  const groups = {};
+  fixedExpenses.forEach(f => {
+    const cat = categories.find(c => c.id === f.category_id);
+    const label = fixedGroupLabel(cat ? cat.name : null);
+    (groups[label] = groups[label] || []).push(f);
+  });
+
+  const rowHtml = (f) => {
     const cat = categories.find(c => c.id === f.category_id);
     const iconBg = cat ? catColor(cat.name) : 'var(--surface-alt)';
     return `<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);opacity:${f.is_active ? 1 : 0.5};">
@@ -650,7 +668,17 @@ function renderFixedList() {
       </div>
       <button data-toggle-fixed="${f.id}" style="background:none;border:none;font-size:11px;font-weight:700;color:var(--subtext);">${f.is_active ? '끄기' : '켜기'}</button>
     </div>`;
+  };
+
+  el.innerHTML = FIXED_GROUP_ORDER.filter(label => groups[label]).map(label => {
+    const items = groups[label];
+    const groupTotal = items.filter(f => f.is_active).reduce((s, f) => s + Number(f.amount), 0);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:var(--surface-alt);">
+        <span style="font-size:11.5px;font-weight:700;color:var(--subtext);">${label}</span>
+        <span style="font-size:11.5px;font-weight:700;color:var(--subtext);">${fmtMoney(groupTotal)}</span>
+      </div>${items.map(rowHtml).join('')}`;
   }).join('');
+
   document.querySelectorAll('[data-edit-fixed]').forEach(elm => elm.addEventListener('click', () => openFixedModal(elm.dataset.editFixed)));
   document.querySelectorAll('[data-toggle-fixed]').forEach(elm => elm.addEventListener('click', async () => {
     const f = fixedExpenses.find(x => x.id === elm.dataset.toggleFixed);
