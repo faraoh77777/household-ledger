@@ -235,7 +235,7 @@ function renderTxRows(list, showActions) {
       <button data-del="${t.id}" style="background:none;border:none;color:var(--danger);font-size:11px;">삭제</button>` : '';
     return `<div style="display:flex;align-items:center;gap:12px;">
       <div style="width:40px;height:40px;border-radius:12px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${icon}</div>
-      <div style="flex:1;"><div style="font-size:13.5px;font-weight:700;">${escapeHtml(name)}</div><div style="font-size:11.5px;color:var(--subtext);">${escapeHtml(t.members?.nickname || '')} · ${dateShort}</div></div>
+      <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(name)}</div><div style="font-size:11.5px;color:var(--subtext);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(t.members?.nickname || '')} · ${dateShort}</div></div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <div style="font-size:13.5px;font-weight:700;color:${color};">${sign}${fmtMoney(t.amount)}</div>
         <div style="display:flex;gap:8px;">${actions}</div>
@@ -353,11 +353,11 @@ function renderBudget() {
     const b = monthBudgets.find(x => x.category_id === cat.id);
     const val = b ? Number(b.limit_amount) : 0;
     return `<div>
-      <div style="display:flex;align-items:center;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
         <div style="width:36px;height:36px;border-radius:11px;background:${catColor(cat.name)};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${cat.icon}</div>
-        <div style="flex:1;font-size:13px;font-weight:600;">${escapeHtml(cat.name)}</div>
-        <input data-budget-cat="${cat.id}" type="number" inputmode="numeric" value="${val || ''}" placeholder="0" style="min-width:108px;text-align:right;border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;background:var(--surface);color:var(--text);">
+        <div style="flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(cat.name)}</div>
       </div>
+      <input data-budget-cat="${cat.id}" type="number" inputmode="numeric" value="${val || ''}" placeholder="0" style="margin-top:8px;width:100%;box-sizing:border-box;text-align:right;border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;background:var(--surface);color:var(--text);">
     </div>`;
   }).join('');
   document.getElementById('budgetRows').innerHTML = rows;
@@ -659,11 +659,11 @@ function renderFixedList() {
     const cat = categories.find(c => c.id === f.category_id);
     const iconBg = cat ? catColor(cat.name) : 'var(--surface-alt)';
     return `<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);opacity:${f.is_active ? 1 : 0.5};">
-      <div data-edit-fixed="${f.id}" style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;">
+      <div data-edit-fixed="${f.id}" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;">
         <div style="width:34px;height:34px;border-radius:10px;background:${iconBg};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${cat ? cat.icon : '🗂️'}</div>
-        <div>
-          <div style="font-size:13px;font-weight:700;">${escapeHtml(f.name)}</div>
-          <div style="font-size:11px;color:var(--subtext);">매월 ${f.day_of_month}일 · ${fmtMoney(f.amount)}</div>
+        <div style="min-width:0;">
+          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</div>
+          <div style="font-size:11px;color:var(--subtext);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">매월 ${f.day_of_month}일 · ${fmtMoney(f.amount)}</div>
         </div>
       </div>
       <button data-toggle-fixed="${f.id}" style="background:none;border:none;font-size:11px;font-weight:700;color:var(--subtext);">${f.is_active ? '끄기' : '켜기'}</button>
